@@ -126,7 +126,15 @@ export default function App() {
       <nav className="bg-white/90 backdrop-blur border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
-            <a href="#/" className="flex items-center" aria-label="Lube&Log home">
+            <a
+              href="#/"
+              className="flex items-center"
+              aria-label="Lube&Log home"
+              onClick={(e) => {
+                e.preventDefault();
+                goHome();
+              }}
+            >
               <div className="bg-blue-600 p-2 rounded-lg mr-3">
                 <Wrench className="w-5 h-5 text-white" />
               </div>

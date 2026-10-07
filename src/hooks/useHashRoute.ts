@@ -15,21 +15,26 @@ export function useHashRoute() {
   const [route, setRoute] = useState<Route>(() => parseHash(window.location.hash));
 
   useEffect(() => {
-    const onChange = () => {
-      setRoute(parseHash(window.location.hash));
-      window.scrollTo(0, 0);
+    const sync = () => setRoute(parseHash(window.location.hash));
+    // popstate covers back/forward after pushState; hashchange covers typed or linked URLs.
+    window.addEventListener('popstate', sync);
+    window.addEventListener('hashchange', sync);
+    return () => {
+      window.removeEventListener('popstate', sync);
+      window.removeEventListener('hashchange', sync);
     };
-    window.addEventListener('hashchange', onChange);
-    return () => window.removeEventListener('hashchange', onChange);
   }, []);
 
   const navigate = useCallback((next: Route, { replace = false } = {}) => {
     const hash = next.view === 'vehicle' ? `#/vehicles/${encodeURIComponent(next.vehicleId)}` : '#/';
-    if (replace) {
-      window.history.replaceState(null, '', hash);
-      setRoute(next);
-    } else {
-      window.location.hash = hash;
+    // Update the screen first, then the URL: if the URL can't change (e.g. inside a
+    // sandboxed iframe) navigation still works, it just isn't bookmarkable.
+    setRoute(next);
+    window.scrollTo(0, 0);
+    try {
+      window.history[replace ? 'replaceState' : 'pushState'](null, '', hash);
+    } catch {
+      // ignore
     }
   }, []);
 
