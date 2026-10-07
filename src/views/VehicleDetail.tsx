@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Activity, ArrowLeft, ArrowUpDown, Download, Filter, Gauge, Hash, Pencil, Search, Tag, Trash2, Wrench, Zap } from 'lucide-react';
+import { ArrowLeft, Download, Gauge, Pencil, Search, Trash2, Wrench } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { SERVICE_TYPES } from '../types';
 import type { MaintenanceLog, ServiceType, Vehicle } from '../types';
@@ -8,8 +8,9 @@ import { computeVehicleHealth } from '../lib/maintenance';
 import { formatCurrency, formatDate, formatMiles } from '../lib/format';
 import { ownershipSummary, spendByYear } from '../lib/stats';
 import { downloadFile, logsToCsv } from '../lib/csv';
-import { HealthCard } from '../components/health';
-import { Button, Card, ConfirmModal } from '../components/ui';
+import { useThemeColors } from '../hooks/useThemeColors';
+import { ServiceSchedule } from '../components/health';
+import { Button, Card, ConfirmModal, Odometer, Plate, SectionHeading } from '../components/ui';
 
 type SortKey = 'date-desc' | 'date-asc' | 'cost-desc' | 'cost-asc' | 'mileage-desc';
 
@@ -30,22 +31,24 @@ export function filterLogs(logs: MaintenanceLog[], { search, type, sort }: { sea
     .sort(SORTERS[sort]);
 }
 
-function Chip({ icon: Icon, children, className = '' }: { icon: typeof Tag; children: ReactNode; className?: string }) {
+const controlClass =
+  'h-9 text-sm border border-line-strong rounded bg-surface text-ink focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/25';
+
+/** One line of the cost-of-ownership "invoice". */
+function Line({ label, detail, value, strong = false }: { label: string; detail?: string; value: ReactNode; strong?: boolean }) {
   return (
-    <span className="inline-flex items-center bg-slate-100 px-2 py-1 rounded-md text-sm font-medium text-slate-700">
-      <Icon className={`w-4 h-4 mr-1 ${className}`} /> {children}
-    </span>
+    <div className="flex items-baseline justify-between gap-4 py-1.5">
+      <dt className={strong ? 'font-semibold text-ink' : 'text-ink-2'}>
+        {label}
+        {detail && <span className="text-ink-3 text-xs ml-1.5">{detail}</span>}
+      </dt>
+      <dd className={`tnum text-right ${strong ? 'font-display text-2xl font-semibold text-ink' : 'text-ink'}`}>{value}</dd>
+    </div>
   );
 }
 
-function Metric({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div>
-      <dt className="text-xs font-medium text-slate-500 uppercase tracking-wide">{label}</dt>
-      <dd className="text-lg font-bold text-slate-900 tabular-nums">{value}</dd>
-      {sub && <dd className="text-xs text-slate-400">{sub}</dd>}
-    </div>
-  );
+function ServiceTag({ children }: { children: ReactNode }) {
+  return <span className="inline-block px-2 py-0.5 rounded-sm bg-surface-2 border border-line text-xs font-medium text-ink-2 whitespace-nowrap">{children}</span>;
 }
 
 export function VehicleDetail({
@@ -71,6 +74,7 @@ export function VehicleDetail({
   onDeleteLog: (id: string) => void;
   notify: (message: string) => void;
 }) {
+  const colors = useThemeColors();
   const [logToDelete, setLogToDelete] = useState<MaintenanceLog | null>(null);
   const [isDeletingVehicle, setIsDeletingVehicle] = useState(false);
   const [search, setSearch] = useState('');
@@ -91,256 +95,261 @@ export function VehicleDetail({
   };
 
   const money = (v: number | null) => (v === null ? '—' : formatCurrency(v, { whole: true }));
+  const perYear = [
+    ownership.costPerYear !== null && `${money(ownership.costPerYear)} a year all-in`,
+    ownership.maintenancePerYear !== null && `${money(ownership.maintenancePerYear)} a year on upkeep`,
+  ].filter(Boolean);
 
   return (
-    <div className="space-y-6">
-      <button onClick={onBack} className="flex items-center text-sm text-slate-500 hover:text-slate-900 transition-colors cursor-pointer">
-        <ArrowLeft className="w-4 h-4 mr-1" /> Back to Garage
-      </button>
+    <div className="space-y-8">
+      <div className="space-y-4">
+        <button onClick={onBack} className="inline-flex items-center gap-1 text-sm text-ink-3 hover:text-ink transition-colors cursor-pointer">
+          <ArrowLeft className="w-4 h-4" /> Garage
+        </button>
 
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-3xl font-bold text-slate-900">{name}</h1>
-            {isSold && <span className="bg-slate-200 text-slate-700 px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide">Sold</span>}
+        <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
+          <div className="min-w-0">
+            <p className="label-caps">{isSold ? `Sold ${formatDate(vehicle.soldDate)}` : vehicle.fuelType}</p>
+            <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tight leading-none text-ink mt-1">
+              {vehicle.year} {vehicle.make} {vehicle.model}
+            </h1>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mt-3 text-sm text-ink-3">
+              {vehicle.licensePlate && <Plate>{vehicle.licensePlate}</Plate>}
+              {vehicle.vin && (
+                <span>
+                  VIN <span className="font-mono text-[13px] text-ink-2 select-all">{vehicle.vin}</span>
+                </span>
+              )}
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2 mt-3">
-            <Chip icon={Activity}>{formatMiles(vehicle.currentMileage)}</Chip>
-            <Chip icon={Zap} className="text-amber-500">{vehicle.fuelType}</Chip>
-            {vehicle.licensePlate && <Chip icon={Tag} className="text-blue-500">{vehicle.licensePlate}</Chip>}
-            {vehicle.vin && (
-              <Chip icon={Hash} className="text-slate-500">
-                <span className="font-mono text-xs">{vehicle.vin}</span>
-              </Chip>
+          <div className="flex flex-col items-start sm:items-end gap-1.5">
+            <span className="label-caps">Odometer</span>
+            <Odometer miles={vehicle.currentMileage} />
+            {!isSold && (
+              <button onClick={onUpdateMileage} className="inline-flex items-center gap-1 text-sm text-accent hover:underline underline-offset-2 cursor-pointer">
+                <Gauge className="w-3.5 h-3.5" /> Update reading
+              </button>
             )}
           </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {!isSold && (
-            <Button variant="secondary" onClick={onUpdateMileage}>
-              <Gauge className="w-4 h-4 mr-2" /> Update Mileage
-            </Button>
-          )}
-          <Button variant="secondary" onClick={handleExportCSV} disabled={vehicleLogs.length === 0}>
-            <Download className="w-4 h-4 mr-2" /> Export CSV
+        </header>
+
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <Button onClick={() => onLogService()}>
+            <Wrench className="w-4 h-4" /> Log service
           </Button>
           <Button variant="secondary" onClick={onEditVehicle}>
-            <Pencil className="w-4 h-4 mr-2" /> Edit
+            <Pencil className="w-4 h-4" /> Edit
           </Button>
-          <Button variant="danger" onClick={() => setIsDeletingVehicle(true)} title="Delete vehicle" aria-label="Delete vehicle">
+          <Button variant="secondary" onClick={handleExportCSV} disabled={vehicleLogs.length === 0}>
+            <Download className="w-4 h-4" /> Export CSV
+          </Button>
+          <Button variant="ghost" className="sm:ml-auto text-bad hover:text-bad" onClick={() => setIsDeletingVehicle(true)} aria-label="Delete vehicle" title="Delete vehicle">
             <Trash2 className="w-4 h-4" />
-          </Button>
-          <Button onClick={() => onLogService()}>
-            <Wrench className="w-4 h-4 mr-2" /> Log Service
+            <span className="hidden sm:inline">Delete</span>
           </Button>
         </div>
       </div>
 
       {isSold ? (
-        <Card className="p-4 text-sm text-slate-600 bg-slate-50">
-          Sold on <strong>{formatDate(vehicle.soldDate)}</strong> — service reminders are turned off. History is kept for your records and cost of ownership.
-        </Card>
+        <p className="text-sm text-ink-2 border-l-2 border-line-strong pl-3">
+          Service reminders are off because this vehicle was sold. Its history is kept for your records and the cost of ownership below.
+        </p>
       ) : (
         <section aria-label="Service schedule">
-          <h2 className="text-lg font-semibold text-slate-800 mb-3">Service Schedule</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {health.map((h) => (
-              <HealthCard key={h.rule.serviceType} health={h} onLog={() => onLogService(h.rule.serviceType)} />
-            ))}
-          </div>
+          <SectionHeading aside={<span className="text-xs text-ink-3 hidden sm:inline">Due at whichever limit comes first</span>}>Service schedule</SectionHeading>
+          <ServiceSchedule health={health} onLog={(h) => onLogService(h.rule.serviceType)} />
         </section>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <Card className="p-5 lg:col-span-2">
-          <h2 className="font-semibold text-slate-800 mb-4">Cost of Ownership</h2>
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-4">
-            <Metric label="Purchase" value={money(ownership.purchasePrice)} sub={vehicle.purchaseDate ? formatDate(vehicle.purchaseDate) : 'not set'} />
-            <Metric label="Maintenance" value={money(ownership.maintenance)} sub={`${vehicleLogs.length} services`} />
-            {isSold && <Metric label="Sold for" value={money(ownership.soldPrice)} sub={formatDate(vehicle.soldDate)} />}
-            <Metric
-              label={isSold ? 'Net cost' : 'Total invested'}
-              value={money(ownership.netCost)}
-              sub={ownership.yearsOwned !== null ? `${ownership.yearsOwned.toFixed(1)} years owned` : undefined}
-            />
-            <Metric label="Maintenance / yr" value={money(ownership.maintenancePerYear)} />
-            {isSold && <Metric label="Net cost / yr" value={money(ownership.costPerYear)} sub="depreciation + upkeep" />}
-          </dl>
-          {ownership.purchasePrice === null && (
-            <p className="text-xs text-slate-400 mt-4">
-              Add a purchase price via <button className="underline cursor-pointer" onClick={onEditVehicle}>Edit</button> to see total cost.
-            </p>
-          )}
-        </Card>
-
-        <Card className="p-5 lg:col-span-3">
-          <h2 className="font-semibold text-slate-800 mb-4">Maintenance Spend by Year</h2>
-          <div className="h-52">
-            {yearly.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={yearly} margin={{ left: 0, right: 8 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                  <XAxis dataKey="year" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
-                  <YAxis axisLine={false} tickLine={false} width={56} tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={(v: number) => formatCurrency(v, { whole: true })} />
-                  <Tooltip
-                    cursor={{ fill: '#f1f5f9' }}
-                    formatter={(v) => [formatCurrency(Number(v)), 'Spent']}
-                    contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                  />
-                  <Bar dataKey="spent" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={48} />
-                </BarChart>
-              </ResponsiveContainer>
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-8">
+        <section className="min-w-0">
+          <SectionHeading>Cost of ownership</SectionHeading>
+          <Card className="px-4 py-3">
+            <dl className="text-sm">
+              <Line label="Purchase price" detail={vehicle.purchaseDate ? formatDate(vehicle.purchaseDate) : undefined} value={money(ownership.purchasePrice)} />
+              <Line label="Maintenance" detail={`${vehicleLogs.length} services`} value={`+ ${money(ownership.maintenance)}`} />
+              {isSold && <Line label="Sold for" detail={formatDate(vehicle.soldDate)} value={`− ${money(ownership.soldPrice)}`} />}
+              <div className="border-t border-line-strong mt-1.5 pt-1.5">
+                <Line strong label={isSold ? 'Net cost' : 'Total so far'} value={money(ownership.netCost)} />
+              </div>
+            </dl>
+            {ownership.purchasePrice === null ? (
+              <p className="text-xs text-ink-3 mt-1">
+                <button className="text-accent hover:underline cursor-pointer" onClick={onEditVehicle}>
+                  Add a purchase price
+                </button>{' '}
+                to see the full cost.
+              </p>
             ) : (
-              <div className="h-full flex items-center justify-center text-slate-400 text-sm">No services logged yet.</div>
+              ownership.yearsOwned !== null && (
+                <p className="text-xs text-ink-3 mt-1 tnum">
+                  {ownership.yearsOwned.toFixed(1)} years owned{perYear.length ? ` · ${perYear.join(' · ')}` : ''}
+                </p>
+              )
             )}
-          </div>
-        </Card>
+          </Card>
+        </section>
+
+        <section className="min-w-0">
+          <SectionHeading>Upkeep by year</SectionHeading>
+          <Card className="p-4">
+            <div className="h-48">
+              {yearly.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={yearly} margin={{ left: 0, right: 4, top: 4, bottom: 0 }}>
+                    <CartesianGrid vertical={false} stroke={colors.line} />
+                    <XAxis dataKey="year" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: colors.ink3 }} />
+                    <YAxis axisLine={false} tickLine={false} width={52} tick={{ fontSize: 11, fill: colors.ink3 }} tickFormatter={(v: number) => formatCurrency(v, { whole: true })} />
+                    <Tooltip
+                      cursor={{ fill: colors.surface2 }}
+                      formatter={(v) => [formatCurrency(Number(v)), 'Spent']}
+                      contentStyle={{ background: colors.surface, border: `1px solid ${colors.line}`, borderRadius: 6, color: colors.ink, fontSize: 13 }}
+                      labelStyle={{ color: colors.ink, fontWeight: 600 }}
+                    />
+                    <Bar dataKey="spent" fill={colors.accent} radius={[3, 3, 0, 0]} maxBarSize={40} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-ink-3 text-sm">No services logged yet.</div>
+              )}
+            </div>
+          </Card>
+        </section>
       </div>
 
-      <Card>
-        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <h2 className="font-semibold text-slate-800">
-            Maintenance History <span className="text-slate-400 font-normal text-sm">({visibleLogs.length}{visibleLogs.length !== vehicleLogs.length ? ` of ${vehicleLogs.length}` : ''})</span>
-          </h2>
-          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-            <div className="relative w-full md:w-48">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+      <section>
+        <SectionHeading
+          aside={
+            <span className="text-sm text-ink-3 tnum">
+              {visibleLogs.length}
+              {visibleLogs.length !== vehicleLogs.length ? ` of ${vehicleLogs.length}` : ''} records
+            </span>
+          }
+        >
+          Service history
+        </SectionHeading>
+        <Card className="overflow-hidden">
+          <div className="px-4 py-3 border-b border-line flex flex-wrap items-center gap-2">
+            <div className="relative w-full sm:w-auto sm:flex-1 sm:max-w-xs">
+              <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-3" aria-hidden />
               <input
                 type="search"
                 aria-label="Search records"
-                placeholder="Search notes…"
+                placeholder="Search notes"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 text-sm border border-slate-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`${controlClass} w-full pl-8 pr-3`}
               />
             </div>
-            <label className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-slate-400" />
-              <span className="sr-only">Filter by service</span>
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value as ServiceType | 'All')}
-                className="text-sm border border-slate-300 rounded-md py-1.5 pl-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              >
-                <option value="All">All services</option>
-                {SERVICE_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex items-center gap-2">
-              <ArrowUpDown className="w-4 h-4 text-slate-400" />
-              <span className="sr-only">Sort</span>
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value as SortKey)}
-                className="text-sm border border-slate-300 rounded-md py-1.5 pl-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              >
-                <option value="date-desc">Newest first</option>
-                <option value="date-asc">Oldest first</option>
-                <option value="mileage-desc">Highest mileage</option>
-                <option value="cost-desc">Highest cost</option>
-                <option value="cost-asc">Lowest cost</option>
-              </select>
-            </label>
+            <select aria-label="Filter by service" value={type} onChange={(e) => setType(e.target.value as ServiceType | 'All')} className={`${controlClass} pl-2 pr-7 flex-1 sm:flex-none`}>
+              <option value="All">All services</option>
+              {SERVICE_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+            <select aria-label="Sort" value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className={`${controlClass} pl-2 pr-7 flex-1 sm:flex-none`}>
+              <option value="date-desc">Newest first</option>
+              <option value="date-asc">Oldest first</option>
+              <option value="mileage-desc">Highest mileage</option>
+              <option value="cost-desc">Highest cost</option>
+              <option value="cost-asc">Lowest cost</option>
+            </select>
           </div>
-        </div>
 
-        <div className="relative overflow-x-auto hidden md:block">
-          <table className="w-full text-sm text-left">
-            <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="px-6 py-3">Date</th>
-                <th className="px-6 py-3">Service</th>
-                <th className="px-6 py-3 text-right">Mileage</th>
-                <th className="px-6 py-3 text-right">Cost</th>
-                <th className="px-6 py-3">Notes</th>
-                <th className="px-6 py-3 text-right">
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleLogs.length === 0 ? (
+          <div className="relative overflow-x-auto hidden md:block">
+            <table className="w-full text-sm text-left">
+              <thead className="label-caps border-b border-line">
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-slate-500">
-                    {vehicleLogs.length === 0 ? (
-                      <>
-                        No maintenance records yet.{' '}
-                        <button className="text-blue-600 hover:underline cursor-pointer" onClick={() => onLogService()}>
-                          Log the first one
-                        </button>
-                      </>
-                    ) : (
-                      'No records match your search.'
-                    )}
-                  </td>
+                  <th className="px-4 py-2 font-semibold">Date</th>
+                  <th className="px-4 py-2 font-semibold">Service</th>
+                  <th className="px-4 py-2 font-semibold text-right">Odometer</th>
+                  <th className="px-4 py-2 font-semibold text-right">Cost</th>
+                  <th className="px-4 py-2 font-semibold">Notes</th>
+                  <th className="px-4 py-2">
+                    <span className="sr-only">Actions</span>
+                  </th>
                 </tr>
-              ) : (
-                visibleLogs.map((log) => (
-                  <tr key={log.id} className="bg-white border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 font-medium text-slate-900 whitespace-nowrap">{formatDate(log.date)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full text-xs font-medium">{log.serviceType}</span>
-                    </td>
-                    <td className="px-6 py-4 text-slate-600 text-right tabular-nums whitespace-nowrap">{log.mileage.toLocaleString('en-US')}</td>
-                    <td className="px-6 py-4 text-slate-900 font-medium text-right tabular-nums">{formatCurrency(log.cost)}</td>
-                    <td className="px-6 py-4 text-slate-500 max-w-xs truncate" title={log.notes}>
-                      {log.notes || '—'}
-                    </td>
-                    <td className="px-6 py-4 text-right whitespace-nowrap">
-                      <button onClick={() => onEditLog(log)} className="text-slate-400 hover:text-blue-600 transition-colors p-1 cursor-pointer" aria-label={`Edit ${log.serviceType} record`}>
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => setLogToDelete(log)} className="text-slate-400 hover:text-red-600 transition-colors p-1 ml-2 cursor-pointer" aria-label={`Delete ${log.serviceType} record`}>
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {visibleLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-10 text-center text-ink-3">
+                      {vehicleLogs.length === 0 ? (
+                        <>
+                          No service records yet.{' '}
+                          <button className="text-accent hover:underline cursor-pointer" onClick={() => onLogService()}>
+                            Log the first one
+                          </button>
+                        </>
+                      ) : (
+                        'No records match your search.'
+                      )}
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ) : (
+                  visibleLogs.map((log) => (
+                    <tr key={log.id} className="group hover:bg-surface-2 transition-colors">
+                      <td className="px-4 py-3 text-ink whitespace-nowrap tnum">{formatDate(log.date)}</td>
+                      <td className="px-4 py-3">
+                        <ServiceTag>{log.serviceType}</ServiceTag>
+                      </td>
+                      <td className="px-4 py-3 text-ink-2 text-right font-mono text-[13px] tnum whitespace-nowrap">{log.mileage.toLocaleString('en-US')}</td>
+                      <td className="px-4 py-3 text-ink font-medium text-right tnum">{formatCurrency(log.cost)}</td>
+                      <td className="px-4 py-3 text-ink-2 max-w-xs truncate" title={log.notes}>
+                        {log.notes || <span className="text-ink-3">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        <button onClick={() => onEditLog(log)} className="text-ink-3 hover:text-ink p-1 cursor-pointer" aria-label={`Edit ${log.serviceType} record`}>
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => setLogToDelete(log)} className="text-ink-3 hover:text-bad p-1 ml-1 cursor-pointer" aria-label={`Delete ${log.serviceType} record`}>
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
-        {/* Phones: stacked cards instead of a sideways-scrolling table. */}
-        <ul className="md:hidden divide-y divide-slate-100">
-          {visibleLogs.length === 0 && (
-            <li className="px-5 py-8 text-center text-sm text-slate-500">
-              {vehicleLogs.length === 0 ? 'No maintenance records yet.' : 'No records match your search.'}
-            </li>
-          )}
-          {visibleLogs.map((log) => (
-            <li key={log.id} className="px-5 py-4 flex gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full text-xs font-medium">{log.serviceType}</span>
-                  <span className="font-semibold text-slate-900 tabular-nums">{formatCurrency(log.cost)}</span>
+          {/* Phones: stacked entries instead of a sideways-scrolling table. */}
+          <ul className="md:hidden divide-y divide-line">
+            {visibleLogs.length === 0 && (
+              <li className="px-4 py-8 text-center text-sm text-ink-3">{vehicleLogs.length === 0 ? 'No service records yet.' : 'No records match your search.'}</li>
+            )}
+            {visibleLogs.map((log) => (
+              <li key={log.id} className="px-4 py-3 flex gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="font-medium text-ink">{log.serviceType}</span>
+                    <span className="font-medium text-ink tnum">{formatCurrency(log.cost)}</span>
+                  </div>
+                  <p className="text-xs text-ink-3 mt-0.5 tnum">
+                    {formatDate(log.date)} · {formatMiles(log.mileage)}
+                  </p>
+                  {log.notes && <p className="text-sm text-ink-2 mt-1">{log.notes}</p>}
                 </div>
-                <p className="text-xs text-slate-500 mt-1">
-                  {formatDate(log.date)} · {formatMiles(log.mileage)}
-                </p>
-                {log.notes && <p className="text-sm text-slate-600 mt-1">{log.notes}</p>}
-              </div>
-              <div className="flex flex-col gap-1">
-                <button onClick={() => onEditLog(log)} className="text-slate-400 hover:text-blue-600 p-1 cursor-pointer" aria-label={`Edit ${log.serviceType} record`}>
-                  <Pencil className="w-4 h-4" />
-                </button>
-                <button onClick={() => setLogToDelete(log)} className="text-slate-400 hover:text-red-600 p-1 cursor-pointer" aria-label={`Delete ${log.serviceType} record`}>
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </Card>
+                <div className="flex flex-col">
+                  <button onClick={() => onEditLog(log)} className="text-ink-3 hover:text-ink p-1 cursor-pointer" aria-label={`Edit ${log.serviceType} record`}>
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => setLogToDelete(log)} className="text-ink-3 hover:text-bad p-1 cursor-pointer" aria-label={`Delete ${log.serviceType} record`}>
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      </section>
 
       {logToDelete && (
         <ConfirmModal
-          title="Delete Maintenance Record"
-          message={`Delete the ${logToDelete.serviceType} record from ${formatDate(logToDelete.date)}? This can't be undone.`}
+          title="Delete record?"
+          message={`The ${logToDelete.serviceType} record from ${formatDate(logToDelete.date)} will be removed. This can't be undone.`}
           onCancel={() => setLogToDelete(null)}
           onConfirm={() => {
             onDeleteLog(logToDelete.id);
@@ -351,8 +360,8 @@ export function VehicleDetail({
 
       {isDeletingVehicle && (
         <ConfirmModal
-          title="Delete Vehicle"
-          message={`Remove the ${name} and all ${vehicleLogs.length} of its service records? This can't be undone.`}
+          title="Delete vehicle?"
+          message={`The ${name} and all ${vehicleLogs.length} of its service records will be removed. This can't be undone.`}
           onCancel={() => setIsDeletingVehicle(false)}
           onConfirm={() => {
             setIsDeletingVehicle(false);

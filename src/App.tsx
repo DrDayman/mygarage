@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings, Wrench } from 'lucide-react';
+import { Settings } from 'lucide-react';
 import type { ServiceType } from './types';
 import { useGarage } from './hooks/useGarage';
 import { useHashRoute } from './hooks/useHashRoute';
@@ -10,7 +10,7 @@ import { VehicleForm } from './components/forms/VehicleForm';
 import { LogForm } from './components/forms/LogForm';
 import { MileageForm } from './components/forms/MileageForm';
 import { SettingsModal } from './components/SettingsModal';
-import { Toast } from './components/ui';
+import { Button, Toast } from './components/ui';
 
 type Dialog =
   | { kind: 'add-vehicle' }
@@ -122,37 +122,39 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
-      <nav className="bg-white/90 backdrop-blur border-b border-slate-200 sticky top-0 z-10">
+    <div className="min-h-screen bg-ground text-ink">
+      <nav className="bg-surface border-b border-line sticky top-[env(safe-area-inset-top,0px)] z-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
+          <div className="flex justify-between h-14 items-center">
             <a
               href="#/"
-              className="flex items-center"
-              aria-label="Lube&Log home"
+              className="flex items-center gap-2 rounded"
+              aria-label="myGarage home"
               onClick={(e) => {
                 e.preventDefault();
                 goHome();
               }}
             >
-              <div className="bg-blue-600 p-2 rounded-lg mr-3">
-                <Wrench className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">Lube&amp;Log</span>
+              <svg viewBox="0 0 32 32" className="w-7 h-7" aria-hidden>
+                <rect width="32" height="32" rx="6" className="fill-ink" />
+                <path d="M7 21a9 9 0 0 1 18 0" fill="none" className="stroke-on-ink" strokeWidth="2.4" strokeLinecap="round" />
+                <path d="M16 21l5-6" className="stroke-accent" strokeWidth="2.4" strokeLinecap="round" />
+                <circle cx="16" cy="21" r="2" className="fill-on-ink" />
+              </svg>
+              <span className="font-display text-[1.375rem] leading-none tracking-tight">
+                <span className="font-medium text-ink-3">my</span>
+                <span className="font-bold text-ink">Garage</span>
+              </span>
             </a>
-            <button
-              onClick={() => setDialog({ kind: 'settings' })}
-              className="text-slate-500 hover:text-slate-700 p-2 rounded-full hover:bg-slate-100 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-              aria-label="Settings and data"
-              title="Settings & data"
-            >
-              <Settings className="w-5 h-5" />
-            </button>
+            <Button variant="ghost" size="sm" onClick={() => setDialog({ kind: 'settings' })} aria-label="Settings and data" title="Settings & data">
+              <Settings className="w-4 h-4" />
+              <span className="hidden sm:inline">Data &amp; settings</span>
+            </Button>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-12">
         {selectedVehicle ? (
           <VehicleDetail
             key={selectedVehicle.id}
@@ -185,13 +187,13 @@ export default function App() {
         )}
       </main>
 
-      <footer className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 text-xs text-slate-400">
-        Data is stored locally in your browser. Use Settings to back it up.
+      <footer className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-10 text-xs text-ink-3">
+        Your data stays in this browser. Download a backup from Data &amp; settings to move it to another device.
       </footer>
 
       {renderDialog()}
 
-      <div className="fixed bottom-4 right-4 z-[100] flex flex-col items-end pointer-events-none" aria-live="polite">
+      <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] right-4 z-[100] flex flex-col items-end pointer-events-none" aria-live="polite">
         {toasts.map((t) => (
           <div key={t.id} className="pointer-events-auto">
             <Toast message={t.message} type={t.type} onClose={() => dismiss(t.id)} />

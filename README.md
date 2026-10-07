@@ -1,8 +1,8 @@
-# Lube&Log: a vehicle maintenance tracker
+# myGarage: a vehicle maintenance tracker
 
 **Live demo:** https://drdayman.github.io/mygarage/ · Built for the One Day Build Challenge.
 
-Lube&Log keeps a record of every vehicle you own and every service done on it, and it tells you what needs doing next. You can add a car in seconds by decoding its VIN. You can log oil changes, tire rotations and other work, and see which services are coming due or overdue across all your vehicles. It also shows what each vehicle has really cost you over the years you've owned it.
+myGarage keeps a record of every vehicle you own and every service done on it, and it tells you what needs doing next. You can add a car in seconds by decoding its VIN. You can log oil changes, tire rotations and other work, and see which services are coming due or overdue across all your vehicles. It also shows what each vehicle has really cost you over the years you've owned it.
 
 ![Dashboard](docs/dashboard.png)
 
@@ -20,12 +20,18 @@ Lube&Log keeps a record of every vehicle you own and every service done on it, a
 | **Cost of ownership** | Purchase price + maintenance − sale price gives the net cost. It also shows cost per year owned and maintenance spending per calendar year. Sold vehicles keep their history, and their reminders turn off. |
 | **Your data, portable** | Everything is saved in `localStorage`. From **Settings** you can download or restore a JSON backup, export every service to CSV (safe to open in Excel or Sheets), reload the demo data, or erase everything. |
 | **Validation** | Required fields, sensible ranges for year and mileage, no dates in the future, sold date after purchase date. The odometer can't be set below the highest mileage in the service records. |
-| **Details** | Links like `#/vehicles/v1` survive a refresh and the back button works. Escape closes dialogs, focus is managed, and labels and ARIA are in place. Toasts and confirmation dialogs appear for anything destructive. The layout works on phones. |
+| **Details** | Links like `#/vehicles/v1` survive a refresh and the back button works. Escape closes dialogs, focus is managed, and labels and ARIA are in place. Toasts and confirmation dialogs appear for anything destructive. The layout works on phones, and there's a dark mode that follows your system setting. |
 
 <p>
   <img src="docs/vehicle-detail.png" alt="Vehicle detail page" width="68%">
   <img src="docs/mobile.png" alt="Mobile layout" width="28%">
 </p>
+
+<details>
+<summary>Dark mode</summary>
+
+![Dark mode](docs/dark.png)
+</details>
 
 ## Getting started
 
@@ -55,7 +61,8 @@ The app starts with a demo garage (a Tacoma, a Tesla, and a Civic that was sold)
 ## Tech stack
 
 - **React 19 + TypeScript** (strict mode) on **Vite**
-- **Tailwind CSS v4** for styling, **lucide-react** for icons, **Recharts** for charts
+- **Tailwind CSS v4** with a small set of design tokens (CSS variables) for styling, **lucide-react** for icons, **Recharts** for charts
+- **Barlow** (based on California license plates and highway signs) for type, with **IBM Plex Mono** for VINs and odometer readings
 - **Vitest + Testing Library** for tests
 - **NHTSA vPIC** public API for VIN decoding (no API key needed)
 - **GitHub Actions** for CI (typecheck → test → build) and the Pages deployment
@@ -106,6 +113,7 @@ For each rule that applies to the vehicle:
 - **Dates are local calendar dates (`YYYY-MM-DD`).** `new Date('2024-05-10')` reads the date as UTC, which shows the *previous day* anywhere west of Greenwich. All date math goes through `parseLocalDate`.
 - **The demo data is relative to today.** Service dates are generated as "N days ago", so the demo always shows a realistic mix of good, due-soon and overdue items whenever it's opened. A test checks this.
 - **Hash routing, no router library.** There are two screens. A 30-line hook gives deep links and back-button support without another dependency.
+- **A design that comes from the subject.** I avoided the generic SaaS dashboard look (gradient logos, icon tiles, a shadow on every card). Mileage is shown as an odometer, plates look like plates, the service schedule is a dense table like the one in an owner's manual, and cost of ownership reads like a shop invoice. Every color is a token, which is how light and dark mode share one stylesheet.
 - **One form component for add and edit.** The draft had separate add/edit forms with duplicated fields. Merging them means validation and the VIN decoder behave the same in both.
 
 ## Testing

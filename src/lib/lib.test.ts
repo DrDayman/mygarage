@@ -57,7 +57,7 @@ describe('storage', () => {
 
   it('rejects non-backup files with a helpful message', () => {
     expect(() => parseBackup('not json')).toThrow('not valid JSON');
-    expect(() => parseBackup('{"foo":1}')).toThrow('not a Lube&Log backup');
+    expect(() => parseBackup('{"foo":1}')).toThrow('not a myGarage backup');
   });
 
   it('drops malformed records and orphaned logs', () => {

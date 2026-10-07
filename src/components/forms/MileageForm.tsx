@@ -26,7 +26,7 @@ export function MileageForm({
   };
 
   return (
-    <Modal title={`Update Mileage · ${vehicle.make} ${vehicle.model}`} onClose={onClose}>
+    <Modal title={`Odometer · ${vehicle.make} ${vehicle.model}`} onClose={onClose}>
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
         <TextInput
           label="Current odometer reading"
@@ -35,13 +35,13 @@ export function MileageForm({
           min={minMileage}
           value={value}
           error={error}
-          hint={`Previously ${vehicle.currentMileage.toLocaleString('en-US')} mi. Service reminders recalculate instantly.`}
+          hint={`Previously ${vehicle.currentMileage.toLocaleString('en-US')} mi. The service schedule updates as soon as you save.`}
           onChange={(e) => {
             setValue(e.target.value);
             setError(undefined);
           }}
         />
-        <FormActions onCancel={onClose} submitLabel="Save Mileage" />
+        <FormActions onCancel={onClose} submitLabel="Save reading" />
       </form>
     </Modal>
   );

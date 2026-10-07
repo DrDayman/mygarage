@@ -133,11 +133,11 @@ export function VehicleForm({
   const isEdit = Boolean(vehicle);
 
   return (
-    <Modal title={isEdit ? `Edit ${vehicle!.year} ${vehicle!.make} ${vehicle!.model}` : 'Add New Vehicle'} onClose={onClose} wide>
+    <Modal title={isEdit ? `Edit ${vehicle!.year} ${vehicle!.make} ${vehicle!.model}` : 'Add vehicle'} onClose={onClose} wide>
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
-        <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-          <label htmlFor="vin" className="block text-sm font-semibold text-blue-800 mb-2">
-            VIN {isEdit ? '' : <span className="font-normal text-blue-700">— decode to auto-fill (optional)</span>}
+        <div className="bg-surface-2 p-3.5 rounded-md border border-line">
+          <label htmlFor="vin" className="block text-[13px] font-medium text-ink-2 mb-1">
+            VIN {isEdit ? '' : <span className="text-ink-3 font-normal">(optional) · decode it to fill in the details</span>}
           </label>
           <div className="flex gap-2">
             <input
@@ -153,46 +153,47 @@ export function VehicleForm({
               autoComplete="off"
               spellCheck={false}
               aria-invalid={errors.vin ? true : undefined}
-              className="flex-1 min-w-0 px-3 py-2 border border-blue-200 rounded-lg bg-white font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-blue-500 aria-[invalid=true]:border-red-400"
+              className="flex-1 min-w-0 h-10 px-3 border border-line-strong rounded bg-surface text-ink font-mono text-sm tracking-[0.08em] uppercase placeholder:normal-case placeholder:tracking-normal placeholder:font-sans placeholder:text-ink-3/70 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/25 aria-[invalid=true]:border-bad"
             />
-            <Button onClick={handleDecode} disabled={decoding || values.vin.length === 0}>
+            <Button variant="secondary" className="h-10" onClick={handleDecode} disabled={decoding || values.vin.length === 0}>
               {decoding ? (
                 'Decoding…'
               ) : (
                 <>
-                  <Search className="w-4 h-4 mr-1" /> Decode
+                  <Search className="w-4 h-4" /> Decode
                 </>
               )}
             </Button>
           </div>
-          <p className="text-xs mt-1 text-slate-500">
+          <p className="text-xs mt-1.5 text-ink-3 tnum">
             {values.vin.length}/17
-            {errors.vin && <span className="text-red-600"> · {errors.vin}</span>}
-            {decodeMessage && <span className={decodeMessage.ok ? 'text-emerald-700' : 'text-red-600'}> · {decodeMessage.text}</span>}
+            {errors.vin && <span className="text-bad"> · {errors.vin}</span>}
+            {decodeMessage && <span className={decodeMessage.ok ? 'text-ok' : 'text-bad'}> · {decodeMessage.text}</span>}
           </p>
         </div>
 
-        <h3 className="font-semibold text-slate-800 border-b border-slate-200 pb-2">Basic Info</h3>
+        <h3 className="label-caps pt-1">Vehicle</h3>
         <div className="grid grid-cols-2 gap-4">
           <TextInput label="Make" placeholder="e.g. Toyota" {...bind('make')} />
           <TextInput label="Model" placeholder="e.g. Camry" {...bind('model')} />
           <TextInput label="Year" type="number" inputMode="numeric" placeholder="2024" {...bind('year')} />
-          <TextInput label="Current Mileage" type="number" inputMode="numeric" min={0} placeholder="50000" {...bind('currentMileage')} />
-          <SelectInput label="Fuel Type" name="fuelType" options={FUEL_TYPES} value={values.fuelType} onChange={(e) => set('fuelType', e.target.value as FuelType)} />
-          <TextInput label="License Plate" placeholder="ABC-1234" {...bind('licensePlate')} />
+          <TextInput label="Current mileage" type="number" inputMode="numeric" min={0} placeholder="50000" {...bind('currentMileage')} />
+          <SelectInput label="Fuel type" name="fuelType" options={FUEL_TYPES} value={values.fuelType} onChange={(e) => set('fuelType', e.target.value as FuelType)} />
+          <TextInput label="License plate" placeholder="ABC-1234" {...bind('licensePlate')} />
         </div>
 
-        <h3 className="font-semibold text-slate-800 border-b border-slate-200 pb-2 pt-2">
-          Ownership <span className="font-normal text-slate-500 text-sm">(optional — powers cost of ownership)</span>
-        </h3>
+        <div className="pt-2">
+          <h3 className="label-caps">Ownership</h3>
+          <p className="text-xs text-ink-3 mt-0.5">Optional. Used to work out the cost of ownership.</p>
+        </div>
         <div className="grid grid-cols-2 gap-4">
-          <TextInput label="Purchase Date" type="date" max={todayISO()} {...bind('purchaseDate')} />
-          <TextInput label="Purchase Price ($)" type="number" step="0.01" min={0} placeholder="0.00" {...bind('purchasePrice')} />
-          <TextInput label="Sold Date" type="date" max={todayISO()} {...bind('soldDate')} />
-          <TextInput label="Sold Price ($)" type="number" step="0.01" min={0} placeholder="0.00" {...bind('soldPrice')} />
+          <TextInput label="Purchase date" type="date" max={todayISO()} {...bind('purchaseDate')} />
+          <TextInput label="Purchase price ($)" type="number" step="0.01" min={0} placeholder="0.00" {...bind('purchasePrice')} />
+          <TextInput label="Sold date" type="date" max={todayISO()} {...bind('soldDate')} />
+          <TextInput label="Sold price ($)" type="number" step="0.01" min={0} placeholder="0.00" {...bind('soldPrice')} />
         </div>
 
-        <FormActions onCancel={onClose} submitLabel={isEdit ? 'Save Changes' : 'Save Vehicle'} />
+        <FormActions onCancel={onClose} submitLabel={isEdit ? 'Save changes' : 'Add vehicle'} />
       </form>
     </Modal>
   );

@@ -10,7 +10,7 @@ export interface GarageData {
 }
 
 export interface Backup extends GarageData {
-  app: 'lube-and-log';
+  app: 'mygarage';
   version: number;
   exportedAt: string;
 }
@@ -73,7 +73,7 @@ export function parseBackup(text: string): GarageData {
     throw new Error('That file is not valid JSON.');
   }
   if (!isObject(raw) || !Array.isArray(raw.vehicles) || !Array.isArray(raw.logs)) {
-    throw new Error('That file is not a Lube&Log backup.');
+    throw new Error('That file is not a myGarage backup.');
   }
   const vehicles = parseList(raw.vehicles, parseVehicle);
   const ids = new Set(vehicles.map((v) => v.id));
@@ -83,7 +83,7 @@ export function parseBackup(text: string): GarageData {
 }
 
 export function createBackup(data: GarageData, now = new Date()): Backup {
-  return { app: 'lube-and-log', version: BACKUP_VERSION, exportedAt: now.toISOString(), ...data };
+  return { app: 'mygarage', version: BACKUP_VERSION, exportedAt: now.toISOString(), ...data };
 }
 
 /** Read a list from localStorage, falling back when it is missing, unreadable or corrupt. */

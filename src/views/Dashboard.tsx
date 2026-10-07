@@ -1,26 +1,22 @@
 import { useMemo } from 'react';
-import { Activity, Car, ChevronRight, DollarSign, Plus, Wrench } from 'lucide-react';
+import { ChevronRight, Plus } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { MaintenanceLog, Vehicle } from '../types';
 import type { FleetAlert } from '../lib/maintenance';
 import { describeHealth, fleetAlerts } from '../lib/maintenance';
-import { formatCurrency, formatMiles } from '../lib/format';
+import { formatCurrency, pluralize } from '../lib/format';
 import { sumCost } from '../lib/stats';
-import { StatusBadge, StatusIcon } from '../components/health';
-import { Button, Card } from '../components/ui';
+import { useThemeColors } from '../hooks/useThemeColors';
+import { StatusBadge } from '../components/health';
+import { Button, Card, Plate, SectionHeading } from '../components/ui';
 
-function StatTile({ icon: Icon, tone, label, value, sub }: { icon: typeof Car; tone: string; label: string; value: string; sub?: string }) {
+function Figure({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <Card className="p-5 flex items-center gap-4">
-      <div className={`p-3 rounded-lg ${tone}`}>
-        <Icon className="w-6 h-6" />
-      </div>
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-slate-500">{label}</p>
-        <p className="text-2xl font-bold text-slate-900 tabular-nums">{value}</p>
-        {sub && <p className="text-xs text-slate-400">{sub}</p>}
-      </div>
-    </Card>
+    <div className="bg-surface px-4 py-3 sm:px-5 sm:py-4 min-w-0">
+      <dt className="label-caps">{label}</dt>
+      <dd className="font-display text-[1.75rem] leading-tight font-semibold tnum text-ink">{value}</dd>
+      {sub && <dd className="text-xs text-ink-3">{sub}</dd>}
+    </div>
   );
 }
 
@@ -37,156 +33,161 @@ export function Dashboard({
   onAddVehicle: () => void;
   onLogService: (alert: FleetAlert) => void;
 }) {
+  const colors = useThemeColors();
   const alerts = useMemo(() => fleetAlerts(vehicles, logs), [vehicles, logs]);
   const totalSpent = sumCost(logs);
   const activeCount = vehicles.filter((v) => !v.soldDate).length;
   const overdueCount = alerts.filter((a) => a.status === 'overdue').length;
+  const dueSoonCount = alerts.length - overdueCount;
 
   const chartData = useMemo(
     () =>
       vehicles
         .map((v) => ({ name: `${v.make} ${v.model}`, spent: sumCost(logs.filter((l) => l.vehicleId === v.id)) }))
+        .filter((d) => d.spent > 0)
         .sort((a, b) => b.spent - a.spent),
     [vehicles, logs],
   );
 
-  // Ordered: vehicles you still own first, then sold, newest model year first.
+  // Vehicles you still own first, then sold; newest model year first.
   const sortedVehicles = [...vehicles].sort((a, b) => Number(Boolean(a.soldDate)) - Number(Boolean(b.soldDate)) || b.year - a.year);
 
+  const summary =
+    vehicles.length === 0
+      ? 'Add a vehicle to start tracking its service history.'
+      : alerts.length === 0
+        ? 'Everything is up to date.'
+        : [overdueCount && `${pluralize(overdueCount, 'service')} overdue`, dueSoonCount && `${dueSoonCount} due soon`].filter(Boolean).join(', ') + '.';
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="space-y-8">
+      <header className="flex flex-wrap justify-between items-end gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">My Garage</h1>
-          <p className="text-sm text-slate-500">Maintenance history, upcoming service and running costs for every vehicle.</p>
+          <h1 className="font-display text-4xl font-bold tracking-tight text-ink">Garage</h1>
+          <p className={`mt-0.5 ${overdueCount ? 'text-bad font-medium' : 'text-ink-2'}`}>{summary}</p>
         </div>
         <Button onClick={onAddVehicle}>
-          <Plus className="w-4 h-4 mr-2" /> Add Vehicle
+          <Plus className="w-4 h-4" /> Add vehicle
         </Button>
-      </div>
+      </header>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatTile
-          icon={Car}
-          tone="bg-blue-100 text-blue-600"
-          label="Vehicles"
-          value={String(activeCount)}
-          sub={vehicles.length > activeCount ? `+ ${vehicles.length - activeCount} sold` : undefined}
-        />
-        <StatTile icon={DollarSign} tone="bg-emerald-100 text-emerald-600" label="Maintenance Spend" value={formatCurrency(totalSpent, { whole: true })} sub="all time" />
-        <StatTile icon={Activity} tone="bg-purple-100 text-purple-600" label="Services Logged" value={String(logs.length)} />
-        <StatTile
-          icon={Wrench}
-          tone={overdueCount ? 'bg-red-100 text-red-600' : alerts.length ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-500'}
-          label="Needs Attention"
-          value={String(alerts.length)}
-          sub={overdueCount ? `${overdueCount} overdue` : alerts.length ? 'due soon' : 'all caught up'}
-        />
-      </div>
-
-      {alerts.length > 0 && (
-        <Card>
-          <div className="px-5 py-3 border-b border-slate-200 bg-slate-50/60">
-            <h2 className="font-semibold text-slate-800">Upcoming & Overdue Service</h2>
-          </div>
-          <ul className="divide-y divide-slate-100">
-            {alerts.map((a) => (
-              <li key={`${a.vehicle.id}-${a.rule.serviceType}`} className="px-5 py-3 flex items-center gap-3">
-                <StatusIcon status={a.status} className="w-5 h-5 shrink-0" />
-                <button className="flex-1 min-w-0 text-left cursor-pointer group" onClick={() => onViewVehicle(a.vehicle.id)}>
-                  <p className="text-sm font-medium text-slate-800 group-hover:text-blue-700">
-                    {a.rule.serviceType} <span className="text-slate-400 font-normal">·</span>{' '}
-                    <span className="text-slate-600 font-normal">
-                      {a.vehicle.year} {a.vehicle.make} {a.vehicle.model}
-                    </span>
-                  </p>
-                  <p className={`text-xs ${a.status === 'overdue' ? 'text-red-600' : 'text-amber-700'}`}>{describeHealth(a)}</p>
-                </button>
-                <Button variant="secondary" className="!px-3 !py-1.5 text-xs" onClick={() => onLogService(a)}>
-                  Mark done
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </Card>
+      {vehicles.length > 0 && (
+        <dl className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-line border border-line rounded-md overflow-hidden">
+          <Figure label="Vehicles" value={String(activeCount)} sub={vehicles.length > activeCount ? `plus ${vehicles.length - activeCount} sold` : 'in the garage'} />
+          <Figure label="Spent on upkeep" value={formatCurrency(totalSpent, { whole: true })} sub="all time" />
+          <Figure label="Services logged" value={String(logs.length)} sub={`across ${pluralize(vehicles.length, 'vehicle')}`} />
+          <Figure label="Due or overdue" value={String(alerts.length)} sub={overdueCount ? `${overdueCount} overdue` : alerts.length ? 'none overdue' : 'all caught up'} />
+        </dl>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-3">
-          <h2 className="text-lg font-semibold text-slate-800">Vehicles</h2>
+      {alerts.length > 0 && (
+        <section>
+          <SectionHeading>Service due</SectionHeading>
+          <Card className="divide-y divide-line">
+            {alerts.map((a) => (
+              <div key={`${a.vehicle.id}-${a.rule.serviceType}`} className="px-4 py-3 flex flex-wrap sm:flex-nowrap items-center gap-x-4 gap-y-2">
+                <div className="w-24 shrink-0">
+                  <StatusBadge status={a.status} />
+                </div>
+                <button className="flex-1 min-w-[12rem] text-left cursor-pointer group" onClick={() => onViewVehicle(a.vehicle.id)}>
+                  <p className="font-medium text-ink group-hover:underline underline-offset-2">{a.rule.serviceType}</p>
+                  <p className="text-sm text-ink-3">
+                    {a.vehicle.year} {a.vehicle.make} {a.vehicle.model}
+                  </p>
+                </button>
+                <p className={`text-sm font-medium tnum sm:text-right sm:w-48 ${a.status === 'overdue' ? 'text-bad' : 'text-warn'}`}>{describeHealth(a)}</p>
+                <Button size="sm" variant="secondary" className="ml-auto sm:ml-0" onClick={() => onLogService(a)}>
+                  Mark done
+                </Button>
+              </div>
+            ))}
+          </Card>
+        </section>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] gap-8">
+        <section className="min-w-0">
+          <SectionHeading aside={<span className="text-sm text-ink-3">{pluralize(vehicles.length, 'vehicle')}</span>}>Vehicles</SectionHeading>
           {vehicles.length === 0 ? (
-            <div className="p-10 text-center bg-white rounded-xl border-2 border-slate-200 border-dashed">
-              <Car className="w-10 h-10 mx-auto text-slate-300 mb-3" />
-              <p className="text-slate-600 font-medium">Your garage is empty</p>
-              <p className="text-slate-500 text-sm mb-4">Add a vehicle — or paste its VIN and we'll fill in the details.</p>
+            <div className="px-6 py-12 text-center border border-dashed border-line-strong rounded-md">
+              <p className="font-display text-xl font-semibold text-ink">No vehicles yet</p>
+              <p className="text-ink-2 text-sm mt-1 mb-5">Paste a VIN and the make, model and year fill in for you.</p>
               <Button onClick={onAddVehicle}>
-                <Plus className="w-4 h-4 mr-2" /> Add your first vehicle
+                <Plus className="w-4 h-4" /> Add your first vehicle
               </Button>
             </div>
           ) : (
-            sortedVehicles.map((vehicle) => {
-              const vAlerts = alerts.filter((a) => a.vehicle.id === vehicle.id);
-              const worst = vAlerts[0]?.status;
-              const worstCount = vAlerts.filter((a) => a.status === worst).length;
-              return (
-                <Card key={vehicle.id} className={`hover:shadow-md transition-shadow ${vehicle.soldDate ? 'opacity-75' : ''}`}>
-                  <button className="w-full p-5 flex items-center justify-between gap-4 text-left cursor-pointer" onClick={() => onViewVehicle(vehicle.id)}>
-                    <div className="flex items-center gap-4 min-w-0">
-                      <div className="w-12 h-12 shrink-0 bg-slate-100 rounded-full flex items-center justify-center text-slate-600">
-                        <Car className="w-6 h-6" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-lg font-bold text-slate-900">
-                            {vehicle.year} {vehicle.make} {vehicle.model}
-                          </h3>
-                          {vehicle.soldDate && (
-                            <span className="bg-slate-200 text-slate-700 px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide">Sold</span>
-                          )}
-                        </div>
-                        <p className="text-sm text-slate-500">
-                          {formatMiles(vehicle.currentMileage)} · {vehicle.fuelType}
-                          {vehicle.licensePlate ? ` · ${vehicle.licensePlate}` : ''}
-                        </p>
+            <Card className="divide-y divide-line overflow-hidden">
+              {sortedVehicles.map((vehicle) => {
+                const vAlerts = alerts.filter((a) => a.vehicle.id === vehicle.id);
+                const worst = vAlerts[0]?.status;
+                const worstCount = vAlerts.filter((a) => a.status === worst).length;
+                return (
+                  <button
+                    key={vehicle.id}
+                    className="w-full px-4 py-3.5 flex items-center gap-4 text-left cursor-pointer hover:bg-surface-2 transition-colors"
+                    onClick={() => onViewVehicle(vehicle.id)}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <h3 className={`font-display text-xl font-semibold tracking-tight leading-snug ${vehicle.soldDate ? 'text-ink-3' : 'text-ink'}`}>
+                        {vehicle.year} {vehicle.make} {vehicle.model}
+                      </h3>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-sm text-ink-3">
+                        {vehicle.licensePlate && <Plate>{vehicle.licensePlate}</Plate>}
+                        <span className="font-mono text-[13px] text-ink-2 tnum">{vehicle.currentMileage.toLocaleString('en-US')} mi</span>
+                        <span>{vehicle.fuelType}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
-                      {worst ? (
-                        <StatusBadge status={worst}>{worstCount} {worst === 'overdue' ? 'overdue' : 'due soon'}</StatusBadge>
+                      {vehicle.soldDate ? (
+                        <span className="label-caps">Sold</span>
+                      ) : worst ? (
+                        <StatusBadge status={worst}>
+                          {worstCount} {worst === 'overdue' ? 'overdue' : 'due soon'}
+                        </StatusBadge>
                       ) : (
-                        !vehicle.soldDate && <StatusBadge status="good">Up to date</StatusBadge>
+                        <StatusBadge status="good">Up to date</StatusBadge>
                       )}
-                      <ChevronRight className="w-5 h-5 text-slate-400" />
+                      <ChevronRight className="w-4 h-4 text-ink-3" />
                     </div>
                   </button>
-                </Card>
-              );
-            })
+                );
+              })}
+            </Card>
           )}
-        </div>
+        </section>
 
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold text-slate-800">Spend by Vehicle</h2>
-          <Card className="p-4 h-72">
-            {totalSpent > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} layout="vertical" margin={{ left: 8, right: 16 }}>
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                  <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={(v: number) => formatCurrency(v, { whole: true })} />
-                  <YAxis type="category" dataKey="name" width={110} axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#334155' }} />
-                  <Tooltip
-                    cursor={{ fill: '#f1f5f9' }}
-                    formatter={(v) => [formatCurrency(Number(v)), 'Maintenance']}
-                    contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                  />
-                  <Bar dataKey="spent" fill="#3b82f6" radius={[0, 4, 4, 0]} maxBarSize={28} />
-                </BarChart>
-              </ResponsiveContainer>
+        <section className="min-w-0">
+          <SectionHeading>Upkeep by vehicle</SectionHeading>
+          <Card className="p-4">
+            {chartData.length > 0 ? (
+              <div style={{ height: Math.max(140, chartData.length * 52 + 36) }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 12, top: 0, bottom: 0 }}>
+                    <CartesianGrid horizontal={false} stroke={colors.line} />
+                    <XAxis
+                      type="number"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 11, fill: colors.ink3 }}
+                      tickFormatter={(v: number) => formatCurrency(v, { whole: true })}
+                    />
+                    <YAxis type="category" dataKey="name" width={120} axisLine={false} tickLine={false} tick={{ fontSize: 13, fill: colors.ink2 }} />
+                    <Tooltip
+                      cursor={{ fill: colors.surface2 }}
+                      formatter={(v) => [formatCurrency(Number(v)), 'Maintenance']}
+                      contentStyle={{ background: colors.surface, border: `1px solid ${colors.line}`, borderRadius: 6, color: colors.ink, fontSize: 13 }}
+                      labelStyle={{ color: colors.ink, fontWeight: 600 }}
+                    />
+                    <Bar dataKey="spent" fill={colors.accent} radius={[0, 3, 3, 0]} maxBarSize={22} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             ) : (
-              <div className="h-full flex items-center justify-center text-slate-400 text-sm">No cost data yet.</div>
+              <p className="py-10 text-center text-ink-3 text-sm">Costs appear here once you log a service.</p>
             )}
           </Card>
-        </div>
+        </section>
       </div>
     </div>
   );

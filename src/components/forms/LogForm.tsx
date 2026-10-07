@@ -53,13 +53,13 @@ export function LogForm({
   };
 
   return (
-    <Modal title={log ? 'Edit Maintenance Record' : `Log Service · ${vehicle.make} ${vehicle.model}`} onClose={onClose}>
+    <Modal title={log ? 'Edit service record' : `Log service · ${vehicle.make} ${vehicle.model}`} onClose={onClose}>
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
-        <SelectInput label="Service Type" options={SERVICE_TYPES} value={serviceType} onChange={(e) => setServiceType(e.target.value as ServiceType)} />
+        <SelectInput label="Service type" options={SERVICE_TYPES} value={serviceType} onChange={(e) => setServiceType(e.target.value as ServiceType)} />
         <TextInput label="Date" type="date" max={todayISO()} value={date} error={errors.date} onChange={(e) => setDate(e.target.value)} />
         <div className="grid grid-cols-2 gap-4">
           <TextInput
-            label="Mileage at Service"
+            label="Odometer at service"
             type="number"
             inputMode="numeric"
             min={0}
@@ -81,7 +81,7 @@ export function LogForm({
           />
         </div>
         <TextArea label="Notes (optional)" rows={3} placeholder="Parts used, shop, warranty info…" value={notes} onChange={(e) => setNotes(e.target.value)} />
-        <FormActions onCancel={onClose} submitLabel={log ? 'Save Changes' : 'Save Record'} />
+        <FormActions onCancel={onClose} submitLabel={log ? 'Save changes' : 'Save record'} />
       </form>
     </Modal>
   );
